@@ -1,0 +1,18 @@
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+
+TOKEN = "ТВОЙ_ТОКЕН_ЗДЕСЬ"
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Я твой первый бот 🤖")
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Напиши /start чтобы начать")
+
+app = ApplicationBuilder().token(TOKEN).build()
+
+app.add_handler(CommandHandler("start", start))
+app.add_handler(CommandHandler("help", help_command))
+
+print("Бот запущен...")
+app.run_polling()
