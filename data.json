@@ -1,12 +1,5 @@
 {
-    "liquids": {
-        "пыы": {
-            "еу": {
-                "text": "ее",
-                "photo": "AgACAgIAAxkBAAIP7WnFLbAr-But_1FzlAu4VKYUYwFbAAIfE2sbQYkwSjDA3GssKlI4AQADAgADeAADOgQ"
-            }
-        }
-    },
+    "liquids": {},
     "systems": {},
     "consumables": {}
 }
