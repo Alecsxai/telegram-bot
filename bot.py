@@ -85,7 +85,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Добавлено ✅", reply_markup=admin_menu())
         return
 
-    # ===== Текст =====
     if not update.message.text:
         return
 
@@ -213,20 +212,31 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["state"] = "cart_add"
         return
 
-    # ===== Добавление в корзину (исправлено: товар бесконечный) =====
+    # ===== Добавление в корзину =====
     if state == "cart_add":
         if text.lower() == "да":
             item_name = context.user_data.get("last_item")
+
             if item_name:
                 context.user_data.setdefault("cart", []).append(item_name)
+
                 await update.message.reply_text(
-                    f"Добавлено в корзину ✅\nМожно добавить ещё или выбрать другой товар",
+                    "Добавлено в корзину ✅",
                     reply_markup=items_menu(
                         context.user_data.get("category"),
                         context.user_data.get("brand")
                     )
                 )
-        # убираем блокировку
+
+        elif text.lower() == "нет":
+            await update.message.reply_text(
+                "Ок, выбери другой товар",
+                reply_markup=items_menu(
+                    context.user_data.get("category"),
+                    context.user_data.get("brand")
+                )
+            )
+
         context.user_data["state"] = None
         context.user_data.pop("last_item", None)
         return
@@ -237,33 +247,72 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not cart:
             await update.message.reply_text("Корзина пустая")
             return
+
+        cart_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(cart)])
+
         await update.message.reply_text(
-            "В корзине:\n" + "\n".join(cart) + "\n\nВведите 'Оформить заказ' для отправки админу или 'Назад'",
+            "🛒 В корзине:\n\n"
+            f"{cart_text}\n\n"
+            "Введите номер товара чтобы удалить его\n"
+            "или 'Оформить заказ'"
         )
+
+        context.user_data["state"] = "cart_manage"
         return
 
-    # ===== Оформление заказа =====
-    if text == "Оформить заказ":
+    # ===== Управление корзиной (ИСПРАВЛЕНО) =====
+    if state == "cart_manage":
         cart = context.user_data.get("cart", [])
-        if not cart:
-            await update.message.reply_text("Корзина пустая")
+
+        # оформление заказа
+        if text == "Оформить заказ":
+            if not cart:
+                await update.message.reply_text("Корзина пустая")
+                return
+
+            user = update.effective_user
+            username = f"@{user.username}" if user.username else "без username"
+
+            order_text = (
+                f"🛒 НОВЫЙ ЗАКАЗ\n\n"
+                f"👤 {username}\n"
+                f"🆔 {user.id}\n\n"
+                f"📦:\n" + "\n".join(cart)
+            )
+
+            for admin_id in ADMIN_IDS:
+                await context.bot.send_message(admin_id, order_text)
+
+            context.user_data["cart"].clear()
+            context.user_data["state"] = None
+
+            await update.message.reply_text(
+                "Заказ отправлен ✅",
+                reply_markup=main_menu(user_id)
+            )
             return
 
-        user = update.effective_user
-        username = f"@{user.username}" if user.username else "без username"
+        # удаление
+        if text.isdigit():
+            index = int(text) - 1
 
-        order_text = (
-            f"🛒 НОВЫЙ ЗАКАЗ\n\n"
-            f"👤 {username}\n"
-            f"🆔 {user.id}\n\n"
-            f"📦:\n" + "\n".join(cart)
-        )
+            if 0 <= index < len(cart):
+                removed = cart.pop(index)
+                await update.message.reply_text(f"Удалено ❌: {removed}")
+            else:
+                await update.message.reply_text("Неверный номер")
 
-        for admin_id in ADMIN_IDS:
-            await context.bot.send_message(admin_id, order_text)
+        # обновление корзины
+        if cart:
+            cart_text = "\n".join([f"{i+1}. {item}" for i, item in enumerate(cart)])
+            await update.message.reply_text(
+                "🛒 В корзине:\n\n"
+                f"{cart_text}\n\n"
+                "Введите номер товара чтобы удалить или 'Оформить заказ'"
+            )
+        else:
+            await update.message.reply_text("Корзина теперь пустая")
 
-        context.user_data["cart"].clear()
-        await update.message.reply_text("Заказ отправлен ✅", reply_markup=main_menu(user_id))
         return
 
     await update.message.reply_text("Не понял 🤔", reply_markup=main_menu(user_id))
